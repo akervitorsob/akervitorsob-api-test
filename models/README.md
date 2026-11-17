@@ -1,0 +1,1 @@
+# Legacy model definitions\n\nThese files are the original Mongoose model definitions retained for reference only. The active backend does not import them and does not use MongoDB. The active database schema is `database/schema.sql`, accessed through `database/db.js` and `database/repository.js`.\n

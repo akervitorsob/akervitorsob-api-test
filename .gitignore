@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.*
+!.env.example
+database/*.sqlite
+database/*.sqlite-wal
+database/*.sqlite-shm
+*.pem
+*.ppk
+id_rsa
+id_ed25519
+stderr.log
+tmp/
+*.example

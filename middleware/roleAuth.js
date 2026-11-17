@@ -1,101 +1,83 @@
 
 const jwt = require("jsonwebtoken");
-const repo = require("../database/repository");
 
-module.exports = (...roles) => async (req, res, next) => {
-  const authHeader = req.headers.authorization;
+module.exports = (...roles) => {
+  return (req, res, next) => {
+    try {
+      // Check authorization header
+      const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({
-      success: false,
-      message: "Login required"
-    });
-  }
+      if (!authHeader || typeof authHeader !== "string") {
+        return res.status(401).json({
+          message: "Login required"
+        });
+      }
 
-  if (
-    !process.env.JWT_SECRET ||
-    process.env.JWT_SECRET.length < 32
-  ) {
-    return res.status(500).json({
-      success: false,
-      message: "Authentication configuration error"
-    });
-  }
+      // Extract Bearer token
+      const match = authHeader.match(/^Bearer\s+(.+)$/i);
 
-  const token = authHeader.split(" ")[1];
+      if (!match || !match[1].trim()) {
+        return res.status(401).json({
+          message: "Login required"
+        });
+      }
 
-  let decoded;
+      const token = match[1].trim();
 
-  try {
-    decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET,
-      { algorithms: ["HS256"] }
-    );
-  } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid or expired token"
-    });
-  }
+      // Verify JWT secret
+      if (
+        !process.env.JWT_SECRET ||
+        process.env.JWT_SECRET.length < 32
+      ) {
+        console.error("JWT_SECRET is missing or invalid.");
 
-  if (!decoded.id || !decoded.role) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid token data"
-    });
-  }
+        return res.status(500).json({
+          message: "Server authentication configuration error"
+        });
+      }
 
-  try {
-    // Always check the latest user status from Turso.
-    const user = await repo.findUserById(decoded.id);
+      // Verify token
+      const user = jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      );
 
-    if (!user) {
+      // Validate decoded token payload
+      if (
+        !user ||
+        typeof user !== "object" ||
+        Array.isArray(user)
+      ) {
+        return res.status(401).json({
+          message: "Invalid token"
+        });
+      }
+
+      // Check user role
+      if (
+        roles.length > 0 &&
+        !roles.includes(user.role)
+      ) {
+        return res.status(403).json({
+          message: "Access denied"
+        });
+      }
+
+      // Attach authenticated user
+      req.user = user;
+
+      return next();
+
+    } catch (error) {
+      if (error.name === "TokenExpiredError") {
+        return res.status(401).json({
+          message: "Token expired"
+        });
+      }
+
       return res.status(401).json({
-        success: false,
-        message: "User account not found"
+        message: "Invalid token"
       });
     }
-
-    if (user.role !== decoded.role) {
-      return res.status(401).json({
-        success: false,
-        message: "Account permissions have changed. Login again."
-      });
-    }
-
-    // Block pending or revoked sellers.
-    if (user.role === "seller" && !user.approved) {
-      return res.status(403).json({
-        success: false,
-        message: "Seller account is not approved."
-      });
-    }
-
-    if (roles.length && !roles.includes(user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied"
-      });
-    }
-
-    req.user = {
-      id: user.id || user._id,
-      _id: user.id || user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      approved: user.approved
-    };
-
-    return next();
-
-  } catch (error) {
-    console.error("AUTH MIDDLEWARE ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Authentication failed"
-    });
-  }
+  };
 };

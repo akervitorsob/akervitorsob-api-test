@@ -1,0 +1,1 @@
+# Deployment notice\n\nThis project has been converted for Render + Turso. Follow `README-RENDER-TURSO-BN.md`. The old cPanel-local SQLite deployment instructions no longer apply to this package.\n

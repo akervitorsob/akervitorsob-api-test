@@ -1,0 +1,1 @@
+// Compatibility export for older imports. Active database setup is in ../database/db.js.\nmodule.exports = require("../database/db");\n
